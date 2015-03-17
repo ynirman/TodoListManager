@@ -1,5 +1,10 @@
 <resources>
+<<<<<<< HEAD
     <string name="app_name">TodoListManager</string>
+=======
+    <string name="app_name">TodoList</string>
+    <string name="edtNewItem">Enter new "ToDo"</string>
+>>>>>>> parent of 444b258... rename
     <string name="action_settings">Settings</string>
     <string name="menuItemDelete">Delete Item</string>
     <string name="edtNewItem">Enter new "ToDo"</string>
