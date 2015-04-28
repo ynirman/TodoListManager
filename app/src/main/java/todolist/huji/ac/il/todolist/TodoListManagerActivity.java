@@ -2,9 +2,12 @@ package todolist.huji.ac.il.todolist;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
@@ -14,36 +17,49 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
-import java.util.ArrayList;
 import java.util.Date;
 
 
 public class TodoListManagerActivity extends ActionBarActivity {
 
-    private ArrayList<ToDoItem> items;
-    private CustomArrayAdapter itemsAdapter;
+    private ToDoCursorAdapter toDoCursorAdapter;
     final Context context = this;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_todo_list_manager);
+
         ListView list = (ListView)findViewById(R.id.lstTodoItems);
-        items = new ArrayList<>();
-        itemsAdapter = new CustomArrayAdapter(this, android.R.layout.simple_list_item_1, items);
-        list.setAdapter(itemsAdapter);
+        ToDoDbHelper toDoDbHelper = new ToDoDbHelper(this);
+
+        final SQLiteDatabase toDoDb = toDoDbHelper.getWritableDatabase();
+        Cursor cursor = toDoDb.query(ToDoDbHelper.DATABASE_NAME,null,null,null,null,null,null);
+        toDoCursorAdapter = new ToDoCursorAdapter(this, cursor, 0);
+        list.setAdapter(toDoCursorAdapter);
+
         list.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> arg0, View arg1,
                                            final int pos, long id) {
                 AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
-                final String title = items.get(pos).title;
+
+                Cursor c = toDoDb.query(ToDoDbHelper.DATABASE_NAME,null,null,null,null,null,null);
+                c.moveToPosition(pos);
+                final String title = c.getString(c.getColumnIndex("title"));
+                final int idToRemove = c.getInt(c.getColumnIndex("_id"));
+
+
                 alertDialogBuilder.setTitle(title);
                 alertDialogBuilder.setNegativeButton(R.string.menuItemDelete,
                         new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
-                                items.remove(pos);
-                                itemsAdapter.notifyDataSetChanged();
+                                ToDoDbHelper toDoDbHelper = new ToDoDbHelper(context);
+                                SQLiteDatabase toDoDb = toDoDbHelper.getWritableDatabase();
+                                toDoDb.delete(ToDoDbHelper.DATABASE_NAME, "_id = " + idToRemove, null);
+                                toDoCursorAdapter.changeCursor(toDoDb.query(ToDoDbHelper.DATABASE_NAME,
+                                        null, null, null, null, null, null));
+                                toDoCursorAdapter.notifyDataSetChanged();
                             }
                         });
 
@@ -88,8 +104,17 @@ public class TodoListManagerActivity extends ActionBarActivity {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == Activity.RESULT_OK) {
-            items.add(new ToDoItem(data.getStringExtra("title"), (Date)data.getSerializableExtra("dueDate")));
-            itemsAdapter.notifyDataSetChanged();
+            String title = data.getStringExtra("title");
+            Date dueDate = (Date)data.getSerializableExtra("dueDate");
+            ToDoDbHelper toDoDbHelper = new ToDoDbHelper(this);
+            SQLiteDatabase toDoDb = toDoDbHelper.getWritableDatabase();
+            ContentValues contentValues = new ContentValues();
+            contentValues.put("title",title);
+            contentValues.put("due", dueDate.getTime());
+            toDoDb.insert(ToDoDbHelper.DATABASE_NAME, null, contentValues);
+            toDoCursorAdapter.changeCursor(toDoDb.query(ToDoDbHelper.DATABASE_NAME,
+                    null, null, null, null, null, null));
+            toDoCursorAdapter.notifyDataSetChanged();
         }
     }
 }
